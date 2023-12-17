@@ -1,1 +1,1 @@
-# ted
+# Ted Development, Discord Bot
