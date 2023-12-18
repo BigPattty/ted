@@ -27,7 +27,7 @@ class Economy(commands.Cog):
   def get_bal(self, guild_id):
     return f'data/bal_{guild_id}.txt'
 
-  def get_set(self, guild_id):
+  def get_log(self, guild_id):
     return f'econset_{guild_id}.txt'
 
   def load_bal(self, guild_id):
