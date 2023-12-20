@@ -69,7 +69,7 @@ class Brawlv2(commands.Cog):
 
   @app_commands.command(name = 'player', description = "View a player's profile")
   async def player(self, interaction: discord.Interaction, tag: str = None, user: discord.Member = None):
-    member = user if user or interaction.user
+    member = user or interaction.user
     guild_id = interaction.guild_id
     await interaction.response.defer()
     if tag is None:
@@ -112,7 +112,7 @@ class Brawlv2(commands.Cog):
   @app_commands.command(name = 'view', description = 'View the player tag of a user')
   async def view(self, interaction: discord.Interaction, member: discord.Member = None):
     await interaction.response.defer()
-    member = member if member or interaction.user
+    member = member or interaction.user
     tag = self.players_with_tag.get(str(user.id), "No Tag Set")
     embed = discord.Embed(
       title = f"Brawl Stars Player Tag for {member.name}",
