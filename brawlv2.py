@@ -4,6 +4,7 @@ from discord.ext import commands
 import os
 import json
 import threading
+import aiofiles
 import random
 import time
 import brawlstats
@@ -17,23 +18,21 @@ class Brawlv2(commands.Cog):
   def get_player_tags(self, guild_id):
     return f'data/tags_{guild_id}.txt'
 
-  def load_tag(self, guild_id):
-    with self.lock:
-        path = self.get_player_tags(guild_id)
-        if not os.path.exists(path):
-            with open(path, "w") as file:
-                json.dump({}, file)
-            return {}
-        with open(path, "r") as file:
-            return json.load(file)
+  async def load_tag(self, guild_id):
+    path = self.get_player_tags(guild_id)
+    if not os.path.exists(path):
+      with open(path, "w") as file:
+        json.dump({}, file)
+        return {}
+    async with aiofiles.open(path, "r") as file:
+      return json.loads(await file.read())
 
-  def save_tag(self, guild_id, user_id, tag):
-    with self.lock:
-        path = self.get_player_tags(guild_id)
-        tags = self.load_tag(guild_id)
-        tags[str(user_id)] = tag
-        with open(path, 'w') as file:
-            json.dump(tag, file, indent=4)
+  async def save_tag(self, guild_id, user_id, tag):
+    path = self.get_player_tags(guild_id)
+    tags = await self.load_tag(guild_id)
+    tags[str(user_id)] = tag
+    async with aiofiles.open(path, 'w') as file:
+      await file.write(json.dumps(tags, indent=4))
 
   @app_commands.command(name = 'save', description = 'Save your Brawl Stars player tag!')
   @app_commands.describe(tag='In format of #TAG123')
@@ -43,13 +42,14 @@ class Brawlv2(commands.Cog):
       player = self.bs.get_player(tag)
       guild_id = interaction.guild_id
       user_id = interaction.user.id
-      self.save_tag(guild_id, user_id, tag)
+      await self.save_tag(guild_id, user_id, tag)
 
       embed = discord.Embed(
         title = 'What can I say except, your welcome!',
         description = f'**{tag}** has been saved to {interaction.user.name} without any issues!',
         color = 0xBF713D
       )
+      await interaction.followup.send(embed = embed)
     except brawlstats.NotFoundError:
       embed = discord.Embed(
         title = 'Houston, we have a problem!',
@@ -67,20 +67,22 @@ class Brawlv2(commands.Cog):
       print(f'The following issues occured when saving {tag} to {interaction.user.name}: {e}')
       await interaction.response.send(embed = embed, ephemeral = True)
 
-  @app_commands.command(name = 'player', description = "View a player's profile")
+  @app_commands.command(name='player', description="View a player's profile")
   async def player(self, interaction: discord.Interaction, tag: str = None, user: discord.Member = None):
     member = user or interaction.user
     guild_id = interaction.guild_id
     await interaction.response.defer()
     if tag is None:
-      tag = self.load_tag(guild_id).get(str(member.id))
+      tags = await self.load_tag(guild_id)
+      tag = tags.get(str(member.id))
       if tag is None:
         embed = discord.Embed(
-          title = 'Houston, we have a problem!',
-          description = 'Unfortunately, I could not find a player tag to pull a profile for!',
-          color = 0xBF713D
+          title='Houston, we have a problem!',
+          description='Unfortunately, I could not find a player tag to pull a profile for!',
+          color=0xBF713D
         )
-        await interaction.followup.send(embed.embed, ephemeral = True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
     try:
       player = self.brawlstars.get_player(tag)
       embed = discord.Embed(
@@ -113,7 +115,9 @@ class Brawlv2(commands.Cog):
   async def view(self, interaction: discord.Interaction, member: discord.Member = None):
     await interaction.response.defer()
     member = member or interaction.user
-    tag = self.players_with_tag.get(str(user.id), "No Tag Set")
+    guild_id = interaction.guild_id
+    tags = await self.load_tag(guild_id)
+    tag = tags.get(str(member.id), 'No Tag Set')
     embed = discord.Embed(
       title = f"Brawl Stars Player Tag for {member.name}",
       description = f'Tag: {tag}',
