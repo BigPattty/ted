@@ -5,7 +5,6 @@ import os
 import json
 import threading
 import random
-import asyncio
 import time
 import brawlstats
 
@@ -40,7 +39,6 @@ class Brawlv2(commands.Cog):
   @app_commands.describe(tag='In format of #TAG123')
   async def save(self, interaction: discord.Interaction, tag: str):
     await interaction.response.defer()
-    await asyncio.sleep(5)
     try:
       player = self.bs.get_player(tag)
       guild_id = interaction.guild_id
@@ -70,11 +68,10 @@ class Brawlv2(commands.Cog):
       await interaction.response.send(embed = embed, ephemeral = True)
 
   @app_commands.command(name = 'player', description = "View a player's profile")
-  async def player(self, interaction: discord.Interaction, tag = str = None, user = discord.Member = None):
+  async def player(self, interaction: discord.Interaction, tag: str = None, user: discord.Member = None):
     member = user if user or interaction.user
     guild_id = interaction.guild_id
     await interaction.response.defer()
-    await asyncio.sleep(5)
     if tag is None:
       tag = self.load_tag(guild_id).get(str(member.id))
         if tag is None:
@@ -117,7 +114,6 @@ class Brawlv2(commands.Cog):
     await interaction.response.defer()
     member = member if member or interaction.user
     tag = self.players_with_tag.get(str(user.id), "No Tag Set")
-    await asyncio.sleep(3)
     embed = discord.Embed(
       title = f"Brawl Stars Player Tag for {member.name}",
       description = f'Tag: {tag}',
