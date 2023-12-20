@@ -11,7 +11,7 @@ import brawlstats
 class Brawlv2(commands.Cog):
   def __init__(self, bot: commands.Bot):
     self.bot = bot
-    self.locking = threading.Lock()
+    self.lock = threading.Lock()
     self.bs = brawlstats.Client("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiIsImtpZCI6IjI4YTMxOGY3LTAwMDAtYTFlYi03ZmExLTJjNzQzM2M2Y2NhNSJ9.eyJpc3MiOiJzdXBlcmNlbGwiLCJhdWQiOiJzdXBlcmNlbGw6Z2FtZWFwaSIsImp0aSI6IjVkMTI0M2VkLWI2NGMtNDY5Mi1iNjNhLTJjMzBiMjUyYjdmYSIsImlhdCI6MTcwMDIyMDA0OCwic3ViIjoiZGV2ZWxvcGVyLzg4NmY0MjNkLTJiMTEtMDU4NS01YWMyLWFhOGJmYTczMGMwZiIsInNjb3BlcyI6WyJicmF3bHN0YXJzIl0sImxpbWl0cyI6W3sidGllciI6ImRldmVsb3Blci9zaWx2ZXIiLCJ0eXBlIjoidGhyb3R0bGluZyJ9LHsiY2lkcnMiOlsiMTMyLjE0NS42OC4xMzUiXSwidHlwZSI6ImNsaWVudCJ9XX0.TTmG5orF9i-iU7A-m1kHCJtXwVP-ddWxUTtaNLKQ_VaRVqo1kQt4Xn8x4uBTXI6lOYm_AuOhBZYVvCpqFct_-w")
 
   def get_player_tags(self, guild_id):
@@ -74,13 +74,13 @@ class Brawlv2(commands.Cog):
     await interaction.response.defer()
     if tag is None:
       tag = self.load_tag(guild_id).get(str(member.id))
-        if tag is None:
-          embed = discord.Embed(
-            title = 'Houston, we have a problem!',
-            description = 'Unfortunately, I could not find a player tag to pull a profile for!',
-            color = 0xBF713D
-          )
-          await interaction.followup.send(embed.embed, ephemeral = True)
+      if tag is None:
+        embed = discord.Embed(
+          title = 'Houston, we have a problem!',
+          description = 'Unfortunately, I could not find a player tag to pull a profile for!',
+          color = 0xBF713D
+        )
+        await interaction.followup.send(embed.embed, ephemeral = True)
     try:
       player = self.brawlstars.get_player(tag)
       embed = discord.Embed(
