@@ -1,0 +1,114 @@
+import discord
+from discord.ext import commands
+import datetime
+from collections import deque
+import time
+
+class AutoMod(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.banned_words = ['slut', 'nigga', 'nigger', 'cunt']  # Banned words
+        self.user_offenses = {}  # Track user offenses
+        self.allowed_channels = set()  # Channels where invites are allowed
+        self.max_offenses_before_kick = 3  # Offenses before kick
+        self.max_offenses_before_ban = 5  # Offenses before ban
+        self.mod_log_channel_id = 1188457263476777100  # Mod log channel ID
+        self.spam_tracker = {}  # Tracks message timestamps for each user
+        self.max_messages = 5  # Max messages allowed in the time frame
+        self.time_period = 10  # Time frame in seconds for spam detection
+
+    async def log_to_mod_channel(self, action, user, channel, offense_count):
+        mod_log_channel = self.bot.get_channel(self.mod_log_channel_id)
+        if mod_log_channel:
+            embed = discord.Embed(title="Moderation Action Logged",
+                                  color=0x76C561)  # Blue color for the embed
+            embed.add_field(name="Action", value=action, inline=False)
+            embed.add_field(name="User", value=f"{user} (ID: {user.id})", inline=False)
+            embed.add_field(name="Channel", value=channel.mention, inline=False)
+            embed.add_field(name="Offense Count", value=str(offense_count), inline=False)
+            embed.set_footer(text="Automod Action")
+            await mod_log_channel.send(embed=embed)
+
+    async def handle_offense(self, message, offenses, reason):
+        # Calculate timeout duration
+        duration = 10 * offenses  # Increase timeout duration with each offense
+        current_time = discord.utils.utcnow()
+        timeout_until = current_time + datetime.timedelta(minutes=duration)
+
+        # Construct the DM embed
+        embed = discord.Embed(title="Automoderation Notification", color=discord.Color.red())
+        embed.add_field(name="Reason", value=reason, inline=False)
+        embed.add_field(name="Channel", value=message.channel.mention, inline=False)
+
+        if offenses >= self.max_offenses_before_ban:
+            embed.add_field(name="Action Taken", value="You have been banned from the server.")
+            action = 'Ban'
+        elif offenses >= self.max_offenses_before_kick:
+            embed.add_field(name="Action Taken", value="You have been kicked from the server.")
+            action = 'Kick'
+        else:
+            embed.add_field(name="Action Taken", value=f"You have been timed out for {duration} minutes.")
+            action = 'Timeout'
+
+        # Send the DM with the embed
+        try:
+            await message.author.send(embed=embed)
+        except discord.Forbidden:
+            # If user has DMs closed, log this information
+            await self.log_to_mod_channel("Failed to send DM", message.author, message.channel, offenses)
+
+        # Take moderation action
+        if offenses >= self.max_offenses_before_ban:
+            await message.author.ban(reason=f"Repeated {reason}")
+        elif offenses >= self.max_offenses_before_kick:
+            await message.author.kick(reason=f"Repeated {reason}")
+        else:
+            try:
+                await message.author.timeout(timeout_until, reason=f"Automod action: {reason}")
+            except discord.HTTPException:
+                pass  # Ignore if timeout fails
+
+        # Log to mod channel
+        await self.log_to_mod_channel(action, message.author, message.channel, offenses)
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if message.author.bot or not isinstance(message.channel, discord.TextChannel):
+            return
+
+        # Check for spam
+        if self.is_spamming(message.author.id):
+            await message.delete()
+            await self.handle_offense(message, self.user_offenses.get(message.author.id, 0) + 1, "Spamming")
+            return
+
+        # Curse word filter
+        if any(word in message.content.lower() for word in self.banned_words):
+            await message.delete()
+            offenses = self.user_offenses.get(message.author.id, 0) + 1
+            self.user_offenses[message.author.id] = offenses
+            await self.handle_offense(message, offenses, "Curse Word Usage")
+
+        # Invite link filter
+        elif "discord.gg/" in message.content or "discord.com/invite/" in message.content:
+            if message.channel.id not in self.allowed_channels:
+                await message.delete()
+offenses = self.user_offenses.get(message.author.id, 0) + 1
+self.user_offenses[message.author.id] = offenses
+await self.handle_offense(message, offenses, “Unauthorized Invite Link”)
+
+def is_spamming(self, user_id):
+    current_time = time.time()
+    if user_id not in self.spam_tracker:
+        self.spam_tracker[user_id] = deque()
+    user_history = self.spam_tracker[user_id]
+    user_history.append(current_time)
+
+    # Remove old messages
+    while user_history and current_time - user_history[0] > self.time_period:
+        user_history.popleft()
+
+    return len(user_history) > self.max_messages
+
+async def setup(bot):
+await bot.add_cog(AutoMod(bot))
